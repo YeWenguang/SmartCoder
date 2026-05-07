@@ -297,7 +297,7 @@ def run_repoexec(args: argparse.Namespace) -> int:
     from smartcoder.repoexec.dataset import load_repoexec_rows
 
     repo_root = resolve_repoexec_root(args.repo_root)
-    parquet_path = resolve_repoexec_parquet(repo_root, args.parquet)
+    parquet_path = resolve_repoexec_parquet(repo_root, args.parquet, args.context_level)
     long_memory_path = Path(args.long_memory_path).resolve() if args.long_memory_path else bundled_long_memory_path()
 
     if not parquet_path.exists():
@@ -328,12 +328,15 @@ def run_repoexec(args: argparse.Namespace) -> int:
         {
             "framework": "SMARTCoder",
             "dataset": "RepoExec",
-            "split": "full_context",
+            "context_level": args.context_level,
+            "split": "{}_context".format(args.context_level),
             "parquet": str(parquet_path),
             "repo_root": str(repo_root),
             "model": args.model,
             "base_url": args.base_url,
             "rounds": args.rounds,
+            "temperature": args.temperature,
+            "max_tokens": args.max_tokens,
             "mechanism": "SMARTCoder",
             "implementation_name": "integrated_memory_plus_conditional_trace_repair",
             "long_memory_path": str(long_memory_path),
@@ -548,16 +551,22 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser = repoexec_subparsers.add_parser("run", help="Run SMARTCoder on RepoExec")
     run_parser.add_argument("--repo-root", default="", help="Path to RepoExec root")
     run_parser.add_argument("--parquet", default="", help="Path to RepoExec parquet split")
+    run_parser.add_argument(
+        "--context-level",
+        choices=["full", "medium", "small"],
+        default="full",
+        help="RepoExec repository context level used for the run",
+    )
     run_parser.add_argument("--output-dir", required=True)
     run_parser.add_argument("--start", type=int, default=0)
     run_parser.add_argument("--limit", type=int, default=50)
-    run_parser.add_argument("--rounds", type=int, default=4)
+    run_parser.add_argument("--rounds", type=int, default=4, help="Integrated repair budget after the baseline candidate")
     run_parser.add_argument("--model", default="qwen-plus-2025-12-01")
     run_parser.add_argument("--base-url", default="")
     run_parser.add_argument("--api-key", default="")
     run_parser.add_argument("--api-key-env", default="OPENAI_API_KEY")
-    run_parser.add_argument("--max-tokens", type=int, default=896)
-    run_parser.add_argument("--temperature", type=float, default=0.0)
+    run_parser.add_argument("--max-tokens", type=int, default=896, help="Maximum completion length for each generation call")
+    run_parser.add_argument("--temperature", type=float, default=0.0, help="Sampling temperature; the paper setting uses 0.0")
     run_parser.add_argument("--retries", type=int, default=10)
     run_parser.add_argument("--sleep-base", type=float, default=2.0)
     run_parser.add_argument("--image", default="codeeval-runner-repoexec-first50")

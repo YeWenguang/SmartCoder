@@ -64,16 +64,36 @@ Or install as a package:
 pip install -e .
 ```
 
-## Supported Experiments
+## Experimental Scope
 
-The current packaged experiment pipeline supports **RepoExec**.
+This package is organized around the **SMARTCoder implementation** and its **RepoExec experimental pipeline**.
 
-This includes:
+The current public artifact supports:
 
-- loading RepoExec parquet samples
-- materializing function completions into executable repository code
+- loading RepoExec executable repository-level tasks
+- running SMARTCoder under `full`, `medium`, or `small` repository context levels
+- materializing generated completions into executable repository code
 - evaluating candidates with Docker-based execution
-- running SMARTCoder iterative repair with repository memory, working memory, long-term memory, and conditional trace repair
+- recording per-round outputs needed to compute Pass@1, token usage, and runtime statistics
+
+The current package intentionally focuses on the RepoExec portion of the paper experiments.
+
+## Experimental Configuration
+
+The packaged defaults are aligned with the paper's RepoExec setting:
+
+- benchmark: RepoExec
+- context level: `full` by default, with `medium` and `small` available through `--context-level`
+- repair budget: `4` integrated repair rounds after the baseline candidate
+- temperature: `0.0`
+- generation budget: `896` max completion tokens per call
+- final selection: best candidate in the candidate pool based on execution outcomes
+
+The implementation is compatible with OpenAI-style chat-completions endpoints. The paper-facing models can be supplied through `--model`, for example:
+
+- `qwen-plus-2025-12-01`
+- `gemini-2.5-flash`
+- `gpt-5.4-mini`
 
 ## Running SMARTCoder on RepoExec
 
@@ -90,6 +110,8 @@ The runner looks for RepoExec in the following order:
 Expected RepoExec contents include:
 
 - `hf_dataset/data/full_context-00000-of-00001.parquet`
+- `hf_dataset/data/medium_context-00000-of-00001.parquet`
+- `hf_dataset/data/small_context-00000-of-00001.parquet`
 - `data_with_test_case/`
 - repository project directories under `test-apps/` and related package roots
 
@@ -125,25 +147,47 @@ python scripts/run_repoexec_smartcoder.py repoexec run \
   --output-dir ./runs/repoexec_smoke \
   --limit 1 \
   --rounds 2 \
+  --context-level full \
   --model qwen-plus \
   --base-url "$OPENAI_BASE_URL" \
   --api-key "$OPENAI_API_KEY"
 ```
 
-### 5. Run a larger batch
+### 5. Run the paper-style RepoExec setting
 
 ```bash
 python scripts/run_repoexec_smartcoder.py repoexec run \
-  --output-dir ./runs/repoexec_qwen \
+  --output-dir ./runs/repoexec_full_qwen \
   --start 0 \
   --limit 50 \
+  --context-level full \
   --rounds 4 \
-  --model qwen-plus \
+  --temperature 0 \
+  --model qwen-plus-2025-12-01 \
   --base-url "$OPENAI_BASE_URL" \
   --api-key "$OPENAI_API_KEY" \
   --timeout 120 \
   --image codeeval-runner-repoexec-first50
 ```
+
+### 6. Run the RepoExec robustness study across context levels
+
+```bash
+python scripts/run_repoexec_smartcoder.py repoexec run \
+  --output-dir ./runs/repoexec_medium_qwen \
+  --start 0 \
+  --limit 50 \
+  --context-level medium \
+  --rounds 4 \
+  --temperature 0 \
+  --model qwen-plus-2025-12-01 \
+  --base-url "$OPENAI_BASE_URL" \
+  --api-key "$OPENAI_API_KEY" \
+  --timeout 120 \
+  --image codeeval-runner-repoexec-first50
+```
+
+Replace `medium` with `small` to run the small-context setting.
 
 ## Important CLI Arguments
 
@@ -151,14 +195,20 @@ python scripts/run_repoexec_smartcoder.py repoexec run \
   Path to the RepoExec dataset root.
 - `--parquet`
   Path to the specific RepoExec parquet split.
+- `--context-level`
+  RepoExec repository context granularity: `full`, `medium`, or `small`.
 - `--output-dir`
   Output directory for run artifacts.
 - `--start`, `--limit`
   Sample range to run.
 - `--rounds`
-  Maximum number of integrated repair rounds after the baseline candidate.
+  Maximum number of integrated repair rounds after the baseline candidate. The paper setting uses `4`.
 - `--model`
-  OpenAI-compatible model name, such as `qwen-plus`.
+  OpenAI-compatible model name, such as `qwen-plus-2025-12-01`.
+- `--temperature`
+  Sampling temperature. The paper setting uses `0.0`.
+- `--max-tokens`
+  Maximum completion length per generation call.
 - `--base-url`, `--api-key`
   API endpoint and credential.
 - `--trace-limit`, `--trace-max-chars`
@@ -173,7 +223,7 @@ Each run writes:
 - `metadata.json`
   Run configuration and mechanism metadata.
 - `rounds.jsonl`
-  Per-candidate execution summaries across baseline, integrated repair, and optional trace repair.
+  Per-candidate execution summaries across baseline, integrated repair, and optional trace repair, including token and runtime fields.
 - `generations.json`
   Selected predictions in RepoExec-style output format.
 - `processed_generations.json`

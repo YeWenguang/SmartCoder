@@ -9,6 +9,8 @@ smartcoder_project/datasets/RepoExec/
 At minimum, the SMARTCoder runner expects:
 
 - `hf_dataset/data/full_context-00000-of-00001.parquet`
+- `hf_dataset/data/medium_context-00000-of-00001.parquet`
+- `hf_dataset/data/small_context-00000-of-00001.parquet`
 - `data_with_test_case/`
 - project source directories used by RepoExec execution
 
