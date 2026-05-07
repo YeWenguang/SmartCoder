@@ -249,7 +249,7 @@ def build_repo_memory_card_v2(row: Dict[str, Any]) -> str:
     raise_contracts = extract_raise_contracts(str(row["prompt"]))
 
     function_lines = [
-        "- {}；用途：{}".format(fn["signature"], first_line(fn.get("summary", "prompt 中可见函数"), 220))
+        "- {}; usage: {}".format(fn["signature"], first_line(fn.get("summary", "repository-visible function in the prompt"), 220))
         for fn in dependency_functions[:16]
     ]
     import_lines = ["- {}".format(item) for item in imports[:20]]
@@ -257,19 +257,19 @@ def build_repo_memory_card_v2(row: Dict[str, Any]) -> str:
     class_lines = []
     class_method_names = []
     for cls in classes[:10]:
-        cls_head = "- {}{}；用途：{}".format(
+        cls_head = "- {}{}; usage: {}".format(
             cls["name"],
             "({})".format(cls["base"]) if cls.get("base") else "",
-            first_line(cls.get("summary", "prompt 中可见类"), 180),
+            first_line(cls.get("summary", "repository-visible class in the prompt"), 180),
         )
         class_lines.append(cls_head)
         methods = [item for item in cls.get("methods", []) if isinstance(item, dict)]
         for method in methods[:8]:
-            decorators = method.get("decorators") or "无显式装饰器"
-            first_arg = method.get("first_arg") or "无"
+            decorators = method.get("decorators") or "no explicit decorator"
+            first_arg = method.get("first_arg") or "none"
             class_method_names.append("{}.{}".format(cls["name"], method["name"]))
             class_lines.append(
-                "  - 方法 {}.{}：{}；首参={}；装饰器={}；用途：{}".format(
+                "  - Method {}.{}: {}; first_arg={}; decorators={}; usage: {}".format(
                     cls["name"],
                     method["name"],
                     method["signature"],
@@ -285,39 +285,39 @@ def build_repo_memory_card_v2(row: Dict[str, Any]) -> str:
         + class_method_names[:8]
         + [cls["name"] for cls in classes[:4]]
     )
-    candidates = ", ".join(candidate_names) if candidate_names else "无明显候选依赖"
+    candidates = ", ".join(candidate_names) if candidate_names else "no obvious candidate dependency"
     doc_lines = ["- {}".format(item) for item in doc_examples]
     raise_lines = ["- {}".format(item) for item in raise_contracts]
 
     return "\n".join(
         [
-            "结构化仓库记忆 v2（仓库契约卡）：",
-            "目标任务：",
-            "- 项目：{}".format(row["project"]),
-            "- 模块：{}".format(row["module"]),
-            "- 函数：{}".format(row["entry_point"]),
-            "- 签名：{}".format(row["function_signature"]),
-            "- 需求摘要：{}".format(first_line(str(row["docstring"]), 320)),
-            "docstring 示例/显式规则：",
-            *(doc_lines or ["- 无显式示例"]),
-            "可见 import：",
-            *(import_lines or ["- 无"]),
-            "可见常量/正则/表：",
-            *(constant_lines or ["- 无"]),
-            "可见类与类内方法：",
-            *(class_lines or ["- 无"]),
-            "可见依赖函数：",
-            *(function_lines or ["- 无"]),
-            "可见异常/边界契约：",
-            *(raise_lines or ["- prompt 未显示显式 raise 语句；不要自行添加比 docstring 更严格的异常或校验。"]),
-            "候选依赖：{}".format(candidates),
-            "生成约束：",
-            "- 保持目标函数签名，只输出目标函数需要补全的实现部分。",
-            "- 优先复用可见 helper、类方法、常量和正则；不要发明 prompt 中不存在的符号、常量或正则 group。",
-            "- 如果已有 helper/regex 能表达规则，优先相信它，不要再手写更严格的额外校验。",
-            "- 不要添加 docstring、示例或可见正则没有明确要求的约束。",
-            "- 如果抛出异常，复用可见异常类型和消息风格；不要随意改写异常消息文本。",
-            "- 类内方法调用要尊重签名和首参；不要随意实例化 helper class，也不要凭空多传 self/cls。",
+            "Structured repository memory v2 (repository contract card):",
+            "Target task:",
+            "- Project: {}".format(row["project"]),
+            "- Module: {}".format(row["module"]),
+            "- Function: {}".format(row["entry_point"]),
+            "- Signature: {}".format(row["function_signature"]),
+            "- Requirement summary: {}".format(first_line(str(row["docstring"]), 320)),
+            "Docstring examples / explicit rules:",
+            *(doc_lines or ["- no explicit example"]),
+            "Visible imports:",
+            *(import_lines or ["- none"]),
+            "Visible constants / regexes / tables:",
+            *(constant_lines or ["- none"]),
+            "Visible classes and methods:",
+            *(class_lines or ["- none"]),
+            "Visible helper functions:",
+            *(function_lines or ["- none"]),
+            "Visible exception / boundary contracts:",
+            *(raise_lines or ["- no explicit raise statement is visible in the prompt; do not add constraints stricter than the docstring or visible contracts."]),
+            "Candidate dependencies: {}".format(candidates),
+            "Generation constraints:",
+            "- Preserve the target function signature and output only the completion for the target function.",
+            "- Prefer visible helpers, methods, constants, and regexes; do not invent symbols, constants, or regex groups that do not appear in the prompt.",
+            "- If an existing helper or regex already expresses the rule, trust it instead of reimplementing a stricter custom check.",
+            "- Do not add constraints that are not clearly required by the docstring, examples, or visible regexes.",
+            "- If an exception must be raised, reuse visible exception types and message style; do not arbitrarily rewrite exception text.",
+            "- Respect method signatures and the first-argument convention when calling class methods; do not invent extra self/cls arguments.",
         ]
     )
 
@@ -434,21 +434,21 @@ def build_long_memory_card_v2(row: Dict[str, Any], memory_path: Path, max_cards:
     selected = scored[:max_cards]
     if not selected:
         return ""
-    lines = ["长期经验记忆 v2（按当前任务检索；只提供策略，不替代当前仓库事实）："]
+    lines = ["Long-term experience memory v2 (retrieved for the current task; strategy only, never a replacement for repository facts):"]
     for score, matched, card in selected:
         card_id = card.get("id", "unknown")
         lesson = first_line(str(card.get("lesson") or ""), 260)
         bad_pattern = first_line(str(card.get("bad_pattern") or ""), 200)
         fix_pattern = first_line(str(card.get("fix_pattern") or ""), 220)
-        matched_text = ", ".join(dict.fromkeys(matched[:8])) or "任务上下文相似"
-        lines.append("- [{}] score={:.1f}；匹配：{}".format(card_id, score, matched_text))
+        matched_text = ", ".join(dict.fromkeys(matched[:8])) or "task-context similarity"
+        lines.append("- [{}] score={:.1f}; matched: {}".format(card_id, score, matched_text))
         if lesson:
-            lines.append("  经验：{}".format(lesson))
+            lines.append("  Lesson: {}".format(lesson))
         if bad_pattern:
-            lines.append("  避免：{}".format(bad_pattern))
+            lines.append("  Avoid: {}".format(bad_pattern))
         if fix_pattern:
-            lines.append("  建议：{}".format(fix_pattern))
-    lines.append("使用约束：如果经验提到的符号没有出现在当前 prompt 或结构化仓库记忆中，不要使用；以当前样本的可见代码、docstring 和测试反馈为准。")
+            lines.append("  Suggestion: {}".format(fix_pattern))
+    lines.append("Usage constraint: if a retrieved pattern refers to symbols that are not visible in the current prompt or structured repository memory, do not use it; always defer to visible code, docstrings, and execution feedback from the current sample.")
     return "\n".join(lines)
 
 

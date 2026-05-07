@@ -27,17 +27,17 @@ from smartcoder.utils.io import append_jsonl, save_json, write_jsonl
 
 def compact_error_feedback(eval_result: Dict[str, Any], max_items: int = 5) -> str:
     if eval_result.get("passed"):
-        return "最近执行反馈：passed"
+        return "Latest execution feedback: passed"
     details = eval_result.get("failed_test_details") or []
     lines = [
-        "最近执行反馈：",
-        "- passed_tests：{}".format(eval_result.get("passed_tests", 0)),
-        "- failed_tests：{}".format(eval_result.get("failed_tests", 0)),
-        "- total_tests：{}".format(eval_result.get("total_tests", 0)),
-        "- message：{}".format(eval_result.get("message", "")),
+        "Latest execution feedback:",
+        "- passed_tests: {}".format(eval_result.get("passed_tests", 0)),
+        "- failed_tests: {}".format(eval_result.get("failed_tests", 0)),
+        "- total_tests: {}".format(eval_result.get("total_tests", 0)),
+        "- message: {}".format(eval_result.get("message", "")),
     ]
     if details:
-        lines.append("- 失败测试摘要：")
+        lines.append("- Failed test summary:")
         for item in details[:max_items]:
             lines.append("  - {}: {}: {}".format(item.get("name", "unknown"), item.get("error_type", "Error"), item.get("error", "")))
     return "\n".join(lines)
@@ -61,7 +61,7 @@ def build_integrated_prompt(
     long_card = build_long_memory_for_round(row, long_memory_path, previous_eval)
     work_card = format_memory_for_prompt(memory)
     cards = [
-        "三层记忆优先级：短期工作记忆中的已证伪事实 > 结构化仓库记忆中的真实符号和契约 > 长期经验记忆中的通用策略。",
+        "Three-level memory priority: disproved facts in short-term working memory > true symbols and contracts in structured repository memory > generic strategies in long-term experience memory.",
         repo_card,
     ]
     if long_card:
@@ -71,21 +71,21 @@ def build_integrated_prompt(
             [
                 work_card,
                 compact_error_feedback(previous_eval or {}),
-                "修复要求：",
-                "- 从短期工作记忆里的 best_so_far 继续局部修改。",
-                "- 不要重复 failed_repairs 中已失败的方法。",
-                "- 长期经验只作为策略；如果它提到的符号没有出现在结构化仓库记忆或原始 prompt 中，不要使用。",
-                "- 保留已通过行为，避免大范围重写。",
-                "- 只输出目标函数需要补全的实现部分，不要输出解释。",
+                "Repair requirements:",
+                "- Continue with a local edit starting from best_so_far in working memory.",
+                "- Do not repeat approaches already recorded in failed_repairs.",
+                "- Use long-term experience as strategy only; if it refers to symbols not visible in structured repository memory or the original prompt, do not use them.",
+                "- Preserve already validated behavior and avoid broad rewrites.",
+                "- Output only the completion for the target function and do not include explanations.",
             ]
         )
     else:
         cards.extend(
             [
-                "初始生成要求：",
-                "- 优先遵守结构化仓库记忆中的可见符号、异常契约和 docstring 示例。",
-                "- 长期经验只提供策略，不替代当前仓库事实。",
-                "- 只输出目标函数需要补全的实现部分，不要输出解释。",
+                "Initial generation requirements:",
+                "- Prioritize visible symbols, exception contracts, and docstring examples from structured repository memory.",
+                "- Use long-term experience as strategy only, never as a replacement for current repository facts.",
+                "- Output only the completion for the target function and do not include explanations.",
             ]
         )
     cards.append(build_baseprompt(row))
@@ -145,8 +145,8 @@ def build_trace_integrated_prompt(
     work_card = format_memory_for_prompt(memory)
     trace_card = compact_execution_trace(trace_eval, max_chars=trace_max_chars)
     cards = [
-        "三层记忆 + 运行轨迹修复：",
-        "优先级：短期工作记忆中的已证伪事实 > 结构化仓库记忆中的真实符号和契约 > 运行时 trace 中暴露的具体失败 > 长期经验记忆中的通用策略。",
+        "Three-level memory plus runtime-trace repair:",
+        "Priority: disproved facts in short-term working memory > true symbols and contracts in structured repository memory > concrete failures exposed by runtime traces > generic strategies in long-term experience memory.",
         repo_card,
     ]
     if long_card:
@@ -154,17 +154,17 @@ def build_trace_integrated_prompt(
     cards.extend(
         [
             work_card,
-            "被 trace 诊断的候选代码：",
+            "Candidate code selected for trace diagnosis:",
             "```python",
             traced_solution.rstrip(),
             "```",
             trace_card,
-            "trace-aware 修复要求：",
-            "- 先根据 trace 在内部定位根因，但最终只输出目标函数需要补全的实现部分。",
-            "- 如果 trace 暴露了精确异常消息或断言源码，优先满足该具体契约。",
-            "- 不要重复短期工作记忆中已失败的方案。",
-            "- 不要发明当前 prompt/结构化仓库记忆中不可见的 helper、常量或正则 group。",
-            "- 尽量从当前 best_so_far 做最小修改，避免破坏已通过行为。",
+            "Trace-aware repair requirements:",
+            "- Use the trace internally to localize the root cause, but output only the completion for the target function.",
+            "- If the trace exposes an exact exception message or assertion source line, prioritize satisfying that concrete contract.",
+            "- Do not repeat approaches that have already failed in short-term working memory.",
+            "- Do not invent helpers, constants, or regex groups that are not visible in the current prompt or structured repository memory.",
+            "- Prefer the smallest possible edit from the current best_so_far to avoid breaking already passing behavior.",
             build_baseprompt(row),
         ]
     )

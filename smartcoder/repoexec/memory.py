@@ -48,7 +48,7 @@ def initial_memory(row: Dict[str, Any], task_index: int, total_tests: int) -> Di
         "failed_repairs": [],
         "best_so_far": None,
         "confirmed_facts": [],
-        "next_instruction": "从 best_so_far 局部修复",
+        "next_instruction": "Make a local repair starting from best_so_far.",
     }
 
 
@@ -101,11 +101,11 @@ def update_memory(
         _append_confirmed_fact(memory, "symbol `{}` is not resolvable in the current repository context".format(symbol))
 
     if eval_result.get("passed"):
-        memory["next_instruction"] = "当前候选已通过，保持最小修改策略，避免破坏现有正确行为。"
+        memory["next_instruction"] = "The current candidate passes. Preserve the minimal-change strategy and avoid breaking correct behavior."
     elif memory.get("best_so_far"):
-        memory["next_instruction"] = "从 best_so_far 局部修复，不要重复 failed_repairs 中已失败的方案。"
+        memory["next_instruction"] = "Repair locally from best_so_far and do not repeat approaches already recorded in failed_repairs."
     else:
-        memory["next_instruction"] = "先获得一个可运行候选，再逐步做最小修复。"
+        memory["next_instruction"] = "First obtain a runnable candidate, then improve it with minimal repairs."
 
 
 def format_memory_for_prompt(memory: Dict[str, Any]) -> str:
@@ -134,22 +134,22 @@ def format_memory_for_prompt(memory: Dict[str, Any]) -> str:
             ]
         )
     else:
-        best_lines.append("- best_so_far: 无")
+        best_lines.append("- best_so_far: none")
 
-    fact_lines = ["- {}".format(item) for item in memory.get("confirmed_facts", [])] or ["- 无"]
+    fact_lines = ["- {}".format(item) for item in memory.get("confirmed_facts", [])] or ["- none"]
     return "\n".join(
         [
-            "短期工作记忆：",
+            "Short-term working memory:",
             "- task_id={}".format(memory.get("task_id")),
             "- round={}".format(memory.get("round", 0)),
             "- total_tests={}".format(memory.get("total_tests", 0)),
-            "最近失败修复：",
-            *(failed_lines or ["- 无"]),
-            "当前 best_so_far：",
+            "Recent failed repairs:",
+            *(failed_lines or ["- none"]),
+            "Current best_so_far:",
             *best_lines,
-            "已确认事实：",
+            "Confirmed facts:",
             *fact_lines,
-            "下一步指令：",
+            "Next instruction:",
             "- {}".format(memory.get("next_instruction", "")),
         ]
     )

@@ -358,25 +358,25 @@ def compact_execution_trace(
     details = eval_result.get("failed_test_details") or []
     signature_counter = Counter((item.get("error_type", "Error"), shorten(item.get("error", ""), 120)) for item in details)
     lines = [
-        "压缩执行轨迹：",
-        "- 测试统计：passed={}，failed={}，total={}".format(
+        "Compressed execution trace:",
+        "- Test summary: passed={}, failed={}, total={}".format(
             eval_result.get("passed_tests", 0),
             eval_result.get("failed_tests", 0),
             eval_result.get("total_tests", 0),
         ),
     ]
     if signature_counter:
-        lines.append("- 失败签名统计：")
+        lines.append("- Failure signatures:")
         for (error_type, message), count in signature_counter.most_common(5):
-            lines.append("  - {}: {}；样例数={}".format(error_type, message, count))
+            lines.append("  - {}: {}; count={}".format(error_type, message, count))
     for idx, item in enumerate(details[:max_failed_tests], start=1):
-        lines.append("- 失败样例 {}：{}".format(idx, item.get("name", "unknown")))
-        lines.append("  - 异常：{}".format(item.get("exception_only") or item.get("error_type", "Error")))
+        lines.append("- Failure case {}: {}".format(idx, item.get("name", "unknown")))
+        lines.append("  - Exception: {}".format(item.get("exception_only") or item.get("error_type", "Error")))
         if item.get("error"):
-            lines.append("  - 消息：{}".format(shorten(item.get("error"), 260)))
+            lines.append("  - Message: {}".format(shorten(item.get("error"), 260)))
         frames = item.get("frames") or []
         if frames:
-            lines.append("  - 相关栈帧：")
+            lines.append("  - Relevant stack frames:")
             for frame in frames[-max_frames_per_test:]:
                 file_name = str(frame.get("file", ""))
                 short_file = file_name.replace("/work/", "")
@@ -387,7 +387,7 @@ def compact_execution_trace(
     text = "\n".join(lines)
     if len(text) <= max_chars:
         return text
-    return text[: max_chars - 80] + "\n...（trace 已截断以减少 token）"
+    return text[: max_chars - 80] + "\n... (trace truncated to reduce tokens)"
 
 
 def cleanup_sample_intermediates(sample_dir: Path) -> None:
