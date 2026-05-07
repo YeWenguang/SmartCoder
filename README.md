@@ -46,7 +46,7 @@ The implementation in this repository includes the main components described in 
 
 The current runnable experiment entrypoint is implemented in:
 
-- [smartcoder/repoexec/runner.py](/home/speedaye/work/requirement_review/smartcoder_project/smartcoder/repoexec/runner.py)
+- `smartcoder/repoexec/runner.py`
 
 ## Installation
 
