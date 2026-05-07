@@ -50,7 +50,7 @@ The current runnable experiment entrypoint is implemented in:
 
 ## Installation
 
-Use Python 3.8+.
+Use Python 3.10 or newer.
 
 Install dependencies:
 

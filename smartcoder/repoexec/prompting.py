@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 STOP_WORDS = ["\nclass", "\ndef", "\n#", "\n@", "\nprint", "\nif", "\n```"]
+MOJIBAKE_MARKERS = ("锛", "銆", "鈥", "鈫", "鍙", "鐨", "瑕", "娑", "浣", "褰", "鍏", "鏃", "鎴", "銆")
 
 
 def build_baseprompt(row: Dict[str, Any]) -> str:
@@ -171,6 +172,54 @@ def gpt_code_parser(response: str) -> str:
     return response
 
 
+def strip_leading_code_fence(text: str) -> str:
+    stripped = text.lstrip()
+    if not stripped.startswith("```"):
+        return stripped
+    lines = stripped.splitlines()
+    if not lines:
+        return stripped
+    lines = lines[1:]
+    while lines and lines[-1].strip().startswith("```"):
+        lines.pop()
+    return "\n".join(lines).lstrip("\n")
+
+
+def normalize_completion(text: str) -> str:
+    cleaned = gpt_code_parser(text or "")
+    cleaned = strip_leading_code_fence(cleaned)
+    cleaned = stop_at_stop_token(cleaned)
+    return cleaned.strip("\n")
+
+
+def normalize_completion_body_indentation(text: str) -> str:
+    lines = text.splitlines()
+    if len(lines) <= 1:
+        return text
+    trailing_newline = text.endswith("\n")
+    later_indents = []
+    for line in lines[1:]:
+        stripped = line.lstrip()
+        if not stripped:
+            continue
+        indent = len(line) - len(stripped)
+        if indent > 0:
+            later_indents.append(indent)
+    if not later_indents:
+        return text
+    common_indent = min(later_indents)
+    normalized = [lines[0].lstrip()]
+    for line in lines[1:]:
+        if not line.strip():
+            normalized.append("")
+            continue
+        indent = len(line) - len(line.lstrip())
+        remove = min(indent, common_indent)
+        normalized.append(line[remove:])
+    result = "\n".join(normalized)
+    return result + ("\n" if trailing_newline else "")
+
+
 def extract_function(source: str, entry_point: str) -> Optional[str]:
     try:
         tree = ast.parse(source)
@@ -185,7 +234,8 @@ def extract_function(source: str, entry_point: str) -> Optional[str]:
 
 
 def materialize_solution(row: Dict[str, Any], prediction: str) -> str:
-    parsed = gpt_code_parser(prediction).strip("\n")
+    parsed = normalize_completion_body_indentation(normalize_completion(prediction))
+    parsed = textwrap.dedent(parsed).strip("\n")
     full_fn = extract_function(parsed, str(row["entry_point"]))
     if full_fn:
         return full_fn
@@ -340,6 +390,25 @@ def load_long_memory_cards(path: Path) -> List[Dict[str, Any]]:
     return cards
 
 
+def looks_like_mojibake(text: str) -> bool:
+    if not text:
+        return False
+    marker_hits = sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
+    non_ascii_chars = sum(1 for ch in text if ord(ch) > 127)
+    return marker_hits >= 2 or (non_ascii_chars >= 8 and marker_hits >= 1)
+
+
+def sanitize_long_memory_text(text: str) -> str:
+    compact = " ".join((text or "").split())
+    if not compact:
+        return ""
+    if looks_like_mojibake(compact):
+        return ""
+    if any(ord(ch) > 127 for ch in compact):
+        return ""
+    return compact
+
+
 def as_string_list(value: Any) -> List[str]:
     if value is None:
         return []
@@ -437,9 +506,9 @@ def build_long_memory_card_v2(row: Dict[str, Any], memory_path: Path, max_cards:
     lines = ["Long-term experience memory v2 (retrieved for the current task; strategy only, never a replacement for repository facts):"]
     for score, matched, card in selected:
         card_id = card.get("id", "unknown")
-        lesson = first_line(str(card.get("lesson") or ""), 260)
-        bad_pattern = first_line(str(card.get("bad_pattern") or ""), 200)
-        fix_pattern = first_line(str(card.get("fix_pattern") or ""), 220)
+        lesson = first_line(sanitize_long_memory_text(str(card.get("lesson") or "")), 260)
+        bad_pattern = first_line(sanitize_long_memory_text(str(card.get("bad_pattern") or "")), 200)
+        fix_pattern = first_line(sanitize_long_memory_text(str(card.get("fix_pattern") or "")), 220)
         matched_text = ", ".join(dict.fromkeys(matched[:8])) or "task-context similarity"
         lines.append("- [{}] score={:.1f}; matched: {}".format(card_id, score, matched_text))
         if lesson:
@@ -454,6 +523,10 @@ def build_long_memory_card_v2(row: Dict[str, Any], memory_path: Path, max_cards:
 
 def stop_at_stop_token(text: str) -> str:
     min_stop_index = len(text)
+    stripped = text.lstrip()
+    if stripped.startswith("```"):
+        text = stripped
+        min_stop_index = len(text)
     for token in STOP_WORDS:
         index = text.find(token)
         if index != -1 and index < min_stop_index:

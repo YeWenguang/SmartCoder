@@ -18,9 +18,9 @@ from smartcoder.repoexec.prompting import (
     build_long_memory_card_v2,
     build_repo_memory_card_v2,
     materialize_solution,
+    normalize_completion,
     request_with_retry_detailed,
     solution_to_api_prediction,
-    stop_at_stop_token,
 )
 from smartcoder.utils.io import append_jsonl, save_json, write_jsonl
 
@@ -184,7 +184,7 @@ def request_candidate(client: Any, row: Dict[str, Any], prompt: str, args: argpa
     raw_prediction = str(request_meta["content"])
     attempts = int(request_meta["attempts"])
     api_error = request_meta["error"]
-    prediction = stop_at_stop_token(raw_prediction)
+    prediction = normalize_completion(raw_prediction)
     solution_fn = materialize_solution(row, prediction)
     return prediction, solution_fn, attempts, api_error, request_meta
 
